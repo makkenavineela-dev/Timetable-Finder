@@ -1,0 +1,143 @@
+classDiagram
+  direction LR
+  class College {
+    +String id
+    +String name
+    +String city
+  }
+  class Department {
+    +String id
+    +String name
+  }
+  class Program {
+    +String id
+    +String name
+    +String degree
+  }
+  class AcademicYear {
+    +String id
+    +String year
+  }
+  class Semester {
+    +String id
+    +int number
+    +String term
+  }
+  class Section {
+    +String id
+    +String name
+    +String code
+    +Date wef
+    +int strength
+  }
+  class FacultyCluster {
+    +String id
+    +String name
+  }
+  class Faculty {
+    +String id
+    +String initials
+    +String name
+  }
+  class Course {
+    +String code
+    +String name
+    +String short
+    +String category
+    +String LTP
+    +int credits
+    +String scheduling
+  }
+  class LTP {
+    +String code
+    +String name
+    +int periodsPerCredit
+    +int periodsPerClass
+    +String roomType
+    +boolean byBatch
+    +int priority
+  }
+  class Allotment {
+    +String id
+  }
+  class Batch {
+    +String id
+    +String name
+    +String type
+  }
+  class Class {
+    +String id
+    +String name
+  }
+  class Day {
+    +String id
+    +String name
+    +int order
+    +boolean working
+  }
+  class TimeGrid {
+    +String id
+    +String name
+    +boolean default
+  }
+  class TimeSlot {
+    +String id
+    +String grid
+    +int period
+    +LocalTime start
+    +LocalTime end
+  }
+  class Building {
+    +String id
+    +String name
+  }
+  class Floor {
+    +String id
+    +int number
+  }
+  class Room {
+    +String id
+    +String number
+    +String type
+    +int capacity
+  }
+  class Student {
+    +String usn
+    +String name
+    +String email
+    +int admissionYear
+  }
+  College "1" *-- "many" Department : HAS_DEPARTMENT
+  College "1" *-- "many" Building : HAS_BUILDING
+  Department "1" --> "many" Program : OFFERS
+  Department "1" --> "many" FacultyCluster : HAS_FACULTY_CLUSTER
+  Program "1" *-- "many" AcademicYear : HAS_ACADEMIC_YEAR
+  AcademicYear "1" *-- "many" Semester : HAS_SEMESTER
+  Semester "1" *-- "many" Section : HAS_SECTION
+  Semester "many" --> "many" Course : HAS_COURSE
+  FacultyCluster "1" --> "many" Section : HAS_SECTION
+  FacultyCluster "1" --> "many" Faculty : HAS_FACULTY
+  Faculty "many" --> "1" Department : WORKS_IN
+  Building "1" *-- "many" Floor : HAS_FLOOR
+  Floor "1" *-- "many" Room : HAS_ROOM
+  Section "many" --> "0..1" Room : HOME_ROOM
+  Course "many" --> "1..3" LTP : HAS_LTP (credits, periodsPerWeek, classesPerWeek)
+  Section "1" *-- "many" Allotment : HAS_ALLOTMENT
+  Allotment "many" --> "1" Course : OF_COURSE
+  Faculty "many" --> "many" Allotment : TEACHES (role)
+  Allotment "1" *-- "many" Batch : HAS_BATCH
+  Batch "many" --> "1" Faculty : ASSIGNED_TO
+  Allotment "1" *-- "many" Class : HAS_CLASS
+  Class "many" --> "1" LTP : OF_TYPE
+  Class "many" --> "1" Section : FOR_SECTION
+  Class "many" --> "many" Batch : FOR_BATCH
+  Class "many" --> "many" Faculty : TAUGHT_BY
+  Class "many" --> "1..2" TimeSlot : AT_TIME
+  Class "many" --> "many" Room : IN_ROOM
+  Day "1" *-- "many" TimeSlot : HAS_SLOT
+  TimeGrid "1" *-- "many" TimeSlot : HAS_SLOT
+  Section "many" --> "1" TimeGrid : FOLLOWS
+  TimeSlot "many" --> "many" TimeSlot : NEXT (back-to-back, one schedule) and OVERLAPS (shared time, any schedule)
+  Student "many" --> "many" Section : IN_SECTION
+  Student "many" --> "many" Batch : IN_BATCH
+  Student "many" --> "many" Course : ENROLLED_IN

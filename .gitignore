@@ -1,0 +1,11 @@
+# secrets: backend/.env holds the database password (and .env.* any backup of it)
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+backend/node_modules/
+
+# the project's own Neo4j: a 170 MB program with its data, not source code
+local-neo4j/
+
+*.log
