@@ -25,6 +25,8 @@ The **Add data** tab has forms for:
 - **Timetable class**: put a lecture, tutorial, lab or activity in a section's week, or remove one. Room and faculty are drop-down lists; use **+ Add another** when a lab has several rooms or teachers.
 - **Room**, **Faculty**, **Course**, **Section**: add these, or change one that already exists.
 - **Course teacher**: set who teaches a section's course.
+
+**Every text box suggests the short form together with the full name** (for example `CSE` and `Computer Science and Engineering`, `AI` and `Artificial Intelligence`, `CAV` and `Prof. Chinchu A V`). Type either one: the full name is turned into the short form when you leave the box, and choosing an existing department, faculty member, course or room fills in the other boxes for you.
 - **Remove**: delete a room, faculty member, course or section that nothing uses any more.
 
 Each form also creates the links the other screens need. For example, a new course is given to every section of its semester, with the classes it needs worked out from its L-T-P. A class is only saved when the section, every chosen room and every chosen faculty member are free in all its periods; otherwise the page lists each clash. Changes are saved in Neo4j at once and show on every tab.
@@ -79,8 +81,9 @@ The project's own database (`local-neo4j/`) requires a login and only accepts co
 | Command | What it does |
 |---|---|
 | `npm start` | Starts the server only (the database must already be running) |
-| `npm test` | Checks every endpoint against the data, bad input, the read-only connection, the page's security headers and the Add data forms (with test data it removes again). Needs the database running |
-| `npm run load-data` | Loads `neo4j/01_schema.cypher` and the two timetables `02_cluster_E_sem5.cypher`, `02_cluster_E_sem3.cypher` into the database in `.env`. Safe to repeat |
+| `npm test` | (Refuses to run against an online database unless `TEST_ON_REMOTE=1` is set, because it writes temporary data.) Checks every endpoint against the data, bad input, the read-only connection, the page's security headers and the Add data forms (with test data it removes again). Needs the database running |
+| `npm run load-data` | Loads `neo4j/01_schema.cypher` and the two timetables `02_cluster_E_sem5.cypher`, `02_cluster_E_sem3.cypher` into the database in `.env`. Safe to repeat. For an online database (Aura) add `-- --yes`: `npm run load-data -- --yes` |
+| `npm run check-db` | Read-only health check of the database in `.env`: connection and login, version, schema, counts and 15 integrity checks, with plain-English hints. Never prints the password |
 | `npm run export-snapshot` | Rewrites `frontend/data.js`, the copy the page shows when opened without the server |
 
 To show the page on other devices in your network, add `HOST=0.0.0.0` to `backend/.env`. The page itself has no login, so only do this on a network you trust.

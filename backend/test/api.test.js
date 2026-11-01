@@ -1,7 +1,8 @@
-// Integration test: starts the real server against the real database.
+﻿// Integration test: starts the real server against the real database.
 //   Needs Neo4j running with the timetable loaded (npm run load-data) and backend/.env filled in.
 //   It checks every endpoint against frontend/data.js (the snapshot of that same data).
 import '../src/env.js';
+import '../src/guardTests.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -117,6 +118,12 @@ test('lists: blocks, rooms, sections, faculty and periods match the snapshot', a
   assert.deepEqual(norm(sections.body.map((s) => [s.id, s.section, s.department, s.semester, s.cluster])),
     norm(meta.sections.map((s) => [s.id, s.name, s.department, s.semester, s.cluster])));
   assert.equal(faculty.body.length, meta.faculty.length);
+  // department full names reach the page (the forms show "CSE · Computer Science and Engineering")
+  assert.ok(sections.body.every((s) => s.departmentName), 'every section row has its department name');
+  assert.equal(sections.body.find((s) => s.department === 'CSE').departmentName, 'Computer Science and Engineering');
+  assert.ok(faculty.body.every((f) => f.departmentName), 'every faculty row has its department name');
+  const live = plain((await snapshot.meta()).departments.map((d) => d.id).sort());
+  assert.deepEqual(live, [...new Set(faculty.body.map((f) => f.department).concat(sections.body.map((s) => s.department)))].sort());
   assert.equal(periods.body.length, meta.slots.length);
   assert.ok(periods.body.some((p) => p.day === 'SAT' && p.working === true), 'Saturday is a working day');
 });
@@ -148,7 +155,8 @@ test('the schedules: A has 9 periods a day, B has 8, and sections follow their o
   assert.equal(week3.length, 6 * 8, 'six working days of eight periods');
   assert.equal((await get(`/api/sections/${SEC}/week`)).body.length, 6 * 9);
   const sections = (await get('/api/meta/sections')).body;
-  assert.deepEqual(sections.map((s) => s.section + s.grid), ['3E1B', '3E2B', '3E3B', '3E4B', '5E1A', '5E2A', '5E3A', '5E4A']);
+  // the eight loaded sections (others, added by hand on the page, may exist too)
+  assert.deepEqual(sections.filter((s) => /^[35]E[1-4]$/.test(s.section)).map((s) => s.section + s.grid), ['3E1B', '3E2B', '3E3B', '3E4B', '5E1A', '5E2A', '5E3A', '5E4A']);
 });
 
 test('a room used in one schedule is busy in the overlapping period of the other', async () => {
@@ -255,7 +263,7 @@ test('config.js points the page at this server', async () => {
   assert.match(r.body, /API_URL: location\.origin/);
 });
 
-for (const file of ['style.css', 'app.js', 'edit.js', 'api.js', 'data.js']) {
+for (const file of ['style.css', 'theme.js', 'app.js', 'edit.js', 'api.js', 'data.js']) {
   test(`page file is served: ${file}`, async () => assert.equal((await get('/' + file)).status, 200));
 }
 
@@ -271,7 +279,17 @@ test('an unknown API address gives a JSON 404', async () => {
 
 // ---------------------------------------------------------------- friendly database messages
 test('database problems are explained in plain words', () => {
-  assert.match(explain({ code: 'ServiceUnavailable' }), /running/);
+  // the hint depends on where the database is: this computer or an online one (Aura)
+  const original = process.env.NEO4J_URI;
+  try {
+    process.env.NEO4J_URI = 'bolt://127.0.0.1:17687';
+    assert.match(explain({ code: 'ServiceUnavailable' }), /running/);
+    process.env.NEO4J_URI = 'neo4j+s://abcd1234.databases.neo4j.io';
+    assert.match(explain({ code: 'ServiceUnavailable' }), /paused/);
+    assert.match(explain({ code: 'Neo.ClientError.Security.Unauthorized' }), /Aura/);
+  } finally {
+    if (original === undefined) delete process.env.NEO4J_URI; else process.env.NEO4J_URI = original;
+  }
   assert.match(explain({ code: 'Neo.ClientError.Security.Unauthorized' }), /NEO4J_PASSWORD/);
   assert.match(explain({ code: 'Neo.ClientError.Security.AuthenticationRateLimit' }), /too many/);
   assert.match(explain({ code: 'Neo.ClientError.Security.CredentialsExpired' }), /changed/);

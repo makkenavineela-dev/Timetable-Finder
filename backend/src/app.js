@@ -12,7 +12,7 @@ import { HttpError } from './validate.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND = path.resolve(here, '../../frontend');
 // only these files of the frontend folder are served (not the README or anything else)
-const PAGE_FILES = ['index.html', 'style.css', 'app.js', 'edit.js', 'api.js', 'data.js'];
+const PAGE_FILES = ['index.html', 'style.css', 'theme.js', 'app.js', 'edit.js', 'api.js', 'data.js'];
 
 export function createApp() {
   const app = express();

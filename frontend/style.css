@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --bg: #f7f6f2;
   --surface: #ffffff;
   --surface-2: #f1efe8;
@@ -23,31 +24,30 @@
   --c5-bg: #b5d4f4; --c5-bd: #85b7eb; --c5-tx: #042c53;
   --radius: 10px;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1b19;
-    --surface: #262624;
-    --surface-2: #30302d;
-    --text: #ecebe6;
-    --muted: #b4b2a9;
-    --border: #4a4a46;
-    --accent: #85b7eb;
-    --accent-bg: #0c447c;
-    --accent-tx: #b5d4f4;
-    --ok-bg: #27500a;
-    --ok-bd: #3b6d11;
-    --ok-tx: #c0dd97;
-    --busy-bg: #712b13;
-    --busy-tx: #f5c4b3;
-    --warn-bg: #633806;
-    --warn-tx: #fac775;
-    --c0-bg: #3c3489; --c0-bd: #7f77dd; --c0-tx: #eeedfe;
-    --c1-bg: #854f0b; --c1-bd: #ba7517; --c1-tx: #faeeda;
-    --c2-bg: #085041; --c2-bd: #1d9e75; --c2-tx: #e1f5ee;
-    --c3-bg: #712b13; --c3-bd: #d85a30; --c3-tx: #faece7;
-    --c4-bg: #72243e; --c4-bd: #d4537e; --c4-tx: #fbeaf0;
-    --c5-bg: #0c447c; --c5-bd: #378add; --c5-tx: #e6f1fb;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1b1b19;
+  --surface: #262624;
+  --surface-2: #30302d;
+  --text: #ecebe6;
+  --muted: #b4b2a9;
+  --border: #4a4a46;
+  --accent: #85b7eb;
+  --accent-bg: #0c447c;
+  --accent-tx: #b5d4f4;
+  --ok-bg: #27500a;
+  --ok-bd: #3b6d11;
+  --ok-tx: #c0dd97;
+  --busy-bg: #712b13;
+  --busy-tx: #f5c4b3;
+  --warn-bg: #633806;
+  --warn-tx: #fac775;
+  --c0-bg: #3c3489; --c0-bd: #7f77dd; --c0-tx: #eeedfe;
+  --c1-bg: #854f0b; --c1-bd: #ba7517; --c1-tx: #faeeda;
+  --c2-bg: #085041; --c2-bd: #1d9e75; --c2-tx: #e1f5ee;
+  --c3-bg: #712b13; --c3-bd: #d85a30; --c3-tx: #faece7;
+  --c4-bg: #72243e; --c4-bd: #d4537e; --c4-tx: #fbeaf0;
+  --c5-bg: #0c447c; --c5-bd: #378add; --c5-tx: #e6f1fb;
 }
 
 * { box-sizing: border-box; }
@@ -88,6 +88,12 @@ small { color: var(--muted); }
 .results .id { margin-left: auto; color: var(--muted); font-size: 12px; font-family: Consolas, monospace; }
 .mode { font-size: 12px; padding: 3px 10px; border-radius: 12px; background: var(--warn-bg); color: var(--warn-tx); white-space: nowrap; }
 .mode.live { background: var(--ok-bg); color: var(--ok-tx); }
+.themebtn {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 16px; cursor: pointer; white-space: nowrap;
+  color: var(--text); background: var(--surface); border: 1px solid var(--border);
+}
+.themebtn:hover { border-color: var(--accent); }
+.themebtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- tabs ---------- */
 .tabs { display: flex; gap: 4px; max-width: 1240px; margin: 0 auto; padding: 0 16px; overflow-x: auto; border-bottom: 1px solid var(--border); }

@@ -1,12 +1,13 @@
 // Loads the timetable into the Neo4j database named in backend/.env (it logs in with the password there).
 //   npm run load-data                       neo4j/01_schema.cypher, then the 5th and 3rd semester timetables (02_*)
 //   npm run load-data -- some.cypher ...    other .cypher files, in the order given
+//   npm run load-data -- --yes              needed when the database is not on this computer (for example Aura)
 // Every statement in those files is safe to re-run.
 import '../src/env.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeSession, close, explain, settings } from '../src/db.js';
+import { writeSession, close, explain, settings, hostOf } from '../src/db.js';
 
 const NEO4J_FOLDER = fileURLToPath(new URL('../../neo4j/', import.meta.url));
 const DEFAULT_FILES = ['01_schema.cypher', '02_cluster_E_sem5.cypher', '02_cluster_E_sem3.cypher'].map((f) => path.join(NEO4J_FOLDER, f));
@@ -43,8 +44,20 @@ export function statements(text) {
 }
 
 async function main() {
-  const files = process.argv.length > 2 ? process.argv.slice(2).map((f) => path.resolve(f)) : DEFAULT_FILES;
-  console.log(`Loading into ${settings().uri} (database "${settings().database}")`);
+  const args = process.argv.slice(2);
+  const confirmed = args.includes('--yes');
+  const given = args.filter((a) => a !== '--yes');
+  const files = given.length ? given.map((f) => path.resolve(f)) : DEFAULT_FILES;
+  const { uri, database, remote } = settings();
+  console.log(`Loading into ${hostOf(uri)} (database "${database}")${remote ? ' - an ONLINE database' : ''}`);
+  // The first block of each timetable file deletes the classes of its sections before loading them again, so
+  // pointing this at the wrong database would replace real data. A database that is not on this computer
+  // needs the word --yes to show it was meant.
+  if (remote && !confirmed) {
+    console.error('\nThis is an online database. To load into it on purpose, run:\n  npm run load-data -- --yes');
+    process.exitCode = 1;
+    return;
+  }
   const session = writeSession();
   try {
     for (const file of files) {

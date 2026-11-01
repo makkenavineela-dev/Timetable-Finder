@@ -13,6 +13,8 @@ A plain HTML + CSS + JavaScript page (no install, no build step). For starting t
 | Rooms | Pick **Block, Floor, Room** (and schedule), then see which section uses the room and when |
 | Add data | Forms to add or change classes, rooms, faculty, courses, sections and course teachers, and to remove them. Needs the backend; only works on the computer that runs it |
 
+The **Day / Night mode** button (top right) switches the colours. Until you press it the page follows your system setting; after that it remembers your choice in this browser.
+
 The search box (top) finds sections, rooms, faculty and blocks. Every filter is kept in the web address, so a result can be shared as a link.
 
 ## Where the data comes from
@@ -33,7 +35,8 @@ A section whose code is `SAMPLE` in the database is shown as "(sample)" on scree
 | File | Purpose |
 |---|---|
 | `index.html` | The page |
-| `style.css` | Look, light and dark mode, phone layout |
+| `style.css` | Look, light and dark colours (chosen by `data-theme`), phone layout |
+| `theme.js` | Day / Night button: loads first, sets the colours before the page is drawn, remembers the choice |
 | `app.js` | The five screens, search and filters |
 | `edit.js` | The Add data tab (loaded before `app.js`, which draws it) |
 | `api.js` | Data layer (backend or snapshot) |

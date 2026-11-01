@@ -39,7 +39,13 @@
       return Promise.all([get('/api/meta/rooms'), get('/api/meta/sections'), get('/api/meta/faculty'), get('/api/meta/periods')])
         .then(function (r) {
           var rooms = r[0], sections = r[1], faculty = r[2], periods = r[3];
-          var buildings = new Map(), floors = new Map(), days = new Map(), grids = new Map();
+          var buildings = new Map(), floors = new Map(), days = new Map(), grids = new Map(), depts = new Map();
+          // department id -> full name, from the sections and from the faculty (a department can have only faculty)
+          sections.concat(faculty).forEach(function (x) {
+            if (x.department && (!depts.has(x.department) || !depts.get(x.department).name)) {
+              depts.set(x.department, { id: x.department, name: x.departmentName || x.department });
+            }
+          });
           rooms.forEach(function (x) {
             buildings.set(x.building, { id: x.building, name: x.buildingName || x.building });
             floors.set(x.floorId, { id: x.floorId, building: x.building, number: x.floor });
@@ -49,6 +55,7 @@
             grids.set(x.grid, { id: x.grid, name: x.gridName, default: !!x.defaultGrid });
           });
           return {
+            departments: Array.from(depts.values()).sort(function (a, b) { return a.id < b.id ? -1 : 1; }),
             buildings: Array.from(buildings.values()),
             floors: Array.from(floors.values()),
             rooms: rooms.map(function (x) { return { id: x.roomId, number: x.room, floor: x.floorId, type: x.type, capacity: x.capacity }; }),
@@ -152,7 +159,7 @@
       mode: 'demo',
       label: 'data snapshot',
       meta: function () {
-        return { buildings: D.buildings, floors: D.floors, rooms: D.rooms, days: D.days, grids: D.grids, slots: D.slots, sections: D.sections, faculty: D.faculty };
+        return { departments: D.departments || [], buildings: D.buildings, floors: D.floors, rooms: D.rooms, days: D.days, grids: D.grids, slots: D.slots, sections: D.sections, faculty: D.faculty };
       },
       floorOccupancy: function (floor, slot) {
         return D.rooms.filter(function (r) { return r.floor === floor; }).sort(roomOrder).map(function (r) {

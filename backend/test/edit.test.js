@@ -1,6 +1,7 @@
-// Integration test of the Add data endpoints (src/edit.js) against the real database.
+﻿// Integration test of the Add data endpoints (src/edit.js) against the real database.
 // Everything it creates has an id (or course code) starting with ZZT and is removed again at the end.
 import '../src/env.js';
+import '../src/guardTests.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';

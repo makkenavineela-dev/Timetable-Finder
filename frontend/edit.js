@@ -12,14 +12,50 @@
     ['section', 'Section'], ['teacher', 'Course teacher'], ['remove', 'Remove']
   ];
   var KINDS = [['L', 'Lecture (1 period)'], ['T', 'Tutorial (2 periods)'], ['P', 'Lab (2 periods)'], ['A', 'Activity without a course (1 period)']];
-  var CATEGORIES = ['PC', 'PE', 'OE', 'BS', 'HS', 'AE', 'PW', 'MC'];
+  // course categories: short form and full name
+  var CATEGORY_NAMES = {
+    PC: 'Professional Core', IP: 'Integrated Professional Core', PE: 'Professional Elective', OE: 'Open Elective',
+    BS: 'Basic Science', HS: 'Humanities and Social Sciences', AE: 'Ability Enhancement', SD: 'Skill Development',
+    PW: 'Project Work', MC: 'Mandatory Course', NC: 'Non-credit Course'
+  };
+  var PROGRAM_NAMES = { UG: 'Undergraduate', PG: 'Postgraduate' };
   var done = null;   // result of the last change: shown once at the top when the tab is drawn again
 
   /* ------------------------------------------------------------ small helpers */
   function M() { return UI.meta(); }
   function enc(v) { return encodeURIComponent(v); }
   function input(id, attrs) { return h('input', Object.assign({ id: id, autocomplete: 'off' }, attrs)); }
-  function datalist(id, values) { return h('datalist', { id: id }, values.map(function (v) { return h('option', { value: v }); })); }
+  function put(form, id, v) { var el = form.elements[id]; if (el && v != null) el.value = v; }
+
+  /* ------------------------------------- suggestions: the short form and the full name */
+  // A suggestion is {value, name}: value is the short form (what is saved), name the full name shown beside it.
+  function item(value, name, data) { return { value: String(value), name: String(name == null ? value : name), data: data }; }
+  function findItem(list, text) {
+    var t = String(text).trim().toLowerCase();
+    if (!t) return null;
+    function same(get) { return list.find(function (i) { return get(i).toLowerCase() === t; }) || null; }
+    return same(function (i) { return i.value; }) || same(function (i) { return i.name; }) ||
+      same(function (i) { return i.value + ' · ' + i.name; });
+  }
+  // A text box with a list of suggestions. Typing either the short form or the full name works: when you leave the
+  // box, the full name is turned into the short form, and onPick(suggestion) lets the form fill its other boxes.
+  // Returns [box, list] to put inside a field.
+  function suggestBox(id, list, attrs, onPick) {
+    var listId = id + '-list';
+    var box = input(id, Object.assign({ list: listId }, attrs));
+    box.addEventListener('change', function () {
+      var hit = findItem(list, box.value);
+      if (hit) { box.value = hit.value; if (onPick) onPick(hit); }
+    });
+    var options = list.map(function (i) { return h('option', { value: i.value, label: i.name }); });
+    return [box, h('datalist', { id: listId }, options)];
+  }
+  function deptName(id) {
+    var d = (M().departments || []).find(function (x) { return x.id === id; });
+    return d && d.name ? d.name : id;
+  }
+  function deptLabel(id) { var n = deptName(id); return n !== id ? id + ' · ' + n : id; }
+  function departmentItems() { return departments().map(function (d) { return item(d, deptName(d)); }); }
   function value(form, id) { var el = form.elements[id]; return el ? el.value.trim() : ''; }
   // the values chosen in every drop-down of a multiPick, without blanks or repeats
   function picked(form, name) {
@@ -37,6 +73,7 @@
       .concat(M().faculty.map(function (f) { return f.department; }))).sort();
   }
   function clusters() { return UI.uniq(M().sections.map(function (s) { return s.cluster; }).filter(Boolean)).sort(); }
+  function clusterItems() { return clusters().map(function (c) { return item(c, 'Cluster ' + c); }); }
   function semesters() {
     var seen = {};
     return sections().filter(function (s) { return !seen[s.semesterId] && (seen[s.semesterId] = true); })
@@ -153,7 +190,8 @@
       var courses = res[0].filter(function (c) { return c.semesters.indexOf(sec.semesterId) >= 0 && c.scheduling !== 'NONE'; });
       var courseSel = UI.select('e-course', [], '');
       var courseField = UI.field('Course', courseSel);
-      var nameField = UI.field('Name', input('e-name', { placeholder: 'Seminar', class: 'wide' }));
+      var activityNames = UI.uniq(res[2].filter(function (r) { return r.classId && r.type === 'A'; }).map(function (r) { return r.class; }));
+      var nameField = UI.field('Name', suggestBox('e-name', activityNames.map(function (n) { return item(n); }), { placeholder: 'Seminar', class: 'wide' }));
       var facBox = multiPick('fac', facultyOptions(), 'Choose a faculty member', 'Add another faculty member');
       var roomBox = multiPick('room', roomOptions(), 'No room', 'Add another room');
       var periods = UI.periodsOf(sec.grid || UI.defaultGrid());
@@ -224,98 +262,138 @@
   }
 
   function roomForm() {
-    return form('Add or change a room',
-      'A room is known by its block and number: saving one that exists updates its floor, type and seats. A new block or floor is created when needed.', [
-        UI.field('Block', input('e-block', { list: 'e-blocks', placeholder: 'PJ' })),
-        datalist('e-blocks', M().buildings.map(function (b) { return b.id; })),
-        UI.field('Block name (new block only)', input('e-blockname', { placeholder: 'optional' })),
+    var floorOf = {};
+    M().floors.forEach(function (f) { floorOf[f.id] = f; });
+    var f;
+    var blocks = M().buildings.map(function (b) { return item(b.id, b.name); });
+    var blockNames = M().buildings.map(function (b) { return item(b.name, b.id); });
+    var numbers = M().rooms.map(function (r) {
+      var fl = floorOf[r.floor];
+      return item(r.number, UI.blockName(fl.building) + ' floor ' + fl.number + ' · ' + r.type.toLowerCase(), r);
+    });
+    f = form('Add or change a room',
+      'A room is known by its block and number: saving one that exists updates its floor, type and seats. A new block or floor is created when needed. Start typing: every box suggests the short form with its full name.', [
+        UI.field('Block (short form)', suggestBox('e-block', blocks, { placeholder: 'PJ' }, function (hit) { put(f, 'e-blockname', hit.name); })),
+        UI.field('Block name (new block only)', suggestBox('e-blockname', blockNames, { placeholder: 'optional' }, function (hit) { put(f, 'e-block', hit.name); })),
         UI.field('Floor', input('e-floor', { type: 'number', min: 0, max: 30, placeholder: '4' })),
-        UI.field('Room number', input('e-number', { placeholder: '409 or LAB 402' })),
+        UI.field('Room number', suggestBox('e-number', numbers, { placeholder: '409 or LAB 402' }, function (hit) {
+          var r = hit.data, fl = floorOf[r.floor];
+          put(f, 'e-block', fl.building); put(f, 'e-blockname', UI.blockName(fl.building));
+          put(f, 'e-floor', fl.number); put(f, 'e-type', r.type); put(f, 'e-seats', r.capacity == null ? '' : r.capacity);
+        })),
         UI.field('Type', UI.select('e-type', [['CLASSROOM', 'Classroom'], ['LAB', 'Lab']], 'CLASSROOM')),
         UI.field('Seats', input('e-seats', { type: 'number', min: 1, max: 1000, placeholder: 'optional' }))
-      ], 'Save room', function (f) {
-        save(f, function () {
+      ], 'Save room', function (form) {
+        save(form, function () {
           return api.save('rooms', {
-            block: value(f, 'e-block'), blockName: value(f, 'e-blockname'), floor: value(f, 'e-floor'),
-            number: value(f, 'e-number'), type: value(f, 'e-type'), capacity: value(f, 'e-seats')
+            block: value(form, 'e-block'), blockName: value(form, 'e-blockname'), floor: value(form, 'e-floor'),
+            number: value(form, 'e-number'), type: value(form, 'e-type'), capacity: value(form, 'e-seats')
           });
         }, function (r) {
           return { text: (r.created ? 'Added room ' : 'Updated room ') + r.number + '.', href: '#/rooms?r=' + enc(r.id), link: 'Open the room' };
         });
       });
+    return f;
   }
 
   function facultyForm() {
     var depts = departments();
-    return form('Add or change a faculty member',
-      'A faculty member is known by department and initials: saving initials that exist updates the name. An empty cluster keeps the current one.', [
-        UI.field('Department', UI.select('e-dept', depts.map(function (d) { return [d, d]; }), depts[0])),
-        UI.field('Initials', input('e-initials', { placeholder: 'ABC', maxlength: 6 })),
-        UI.field('Full name', input('e-name', { placeholder: 'Prof. A B Chandra', class: 'wide' })),
-        UI.field('Cluster', input('e-cluster', { list: 'e-clusters', placeholder: 'optional, for example E' })),
-        datalist('e-clusters', clusters())
-      ], 'Save faculty member', function (f) {
-        save(f, function () {
-          return api.save('faculty', { department: value(f, 'e-dept'), initials: value(f, 'e-initials'), name: value(f, 'e-name'), cluster: value(f, 'e-cluster') });
+    var f;
+    function fill(hit) {
+      var fac = hit.data;
+      put(f, 'e-initials', fac.initials); put(f, 'e-name', fac.name); put(f, 'e-dept', fac.department);
+    }
+    var byInitials = M().faculty.map(function (x) { return item(x.initials, x.name, x); });
+    var byName = M().faculty.map(function (x) { return item(x.name, x.initials, x); });
+    f = form('Add or change a faculty member',
+      'A faculty member is known by department and initials: saving initials that exist updates the name. An empty cluster keeps the current one. Choosing an existing person fills the other boxes.', [
+        UI.field('Department', UI.select('e-dept', depts.map(function (d) { return [d, deptLabel(d)]; }), depts[0])),
+        UI.field('Initials (short form)', suggestBox('e-initials', byInitials, { placeholder: 'ABC', maxlength: 6 }, fill)),
+        UI.field('Full name', suggestBox('e-name', byName, { placeholder: 'Prof. A B Chandra', class: 'wide' }, fill)),
+        UI.field('Cluster', suggestBox('e-cluster', clusterItems(), { placeholder: 'optional, for example E' }))
+      ], 'Save faculty member', function (form) {
+        save(form, function () {
+          return api.save('faculty', { department: value(form, 'e-dept'), initials: value(form, 'e-initials'), name: value(form, 'e-name'), cluster: value(form, 'e-cluster') });
         }, function (r) {
           return { text: (r.created ? 'Added ' : 'Updated ') + r.name + '.', href: '#/faculty?f=' + enc(r.id), link: 'Open the timetable' };
         });
       });
+    return f;
   }
 
   function courseForm() {
-    var sems = semesters();
-    return form('Add or change a course',
-      'Every section of the chosen semester gets the course (it shows in their course list). Saving a code that exists updates the course.', [
-        UI.field('Semester', UI.select('e-sem', sems, sems.length ? sems[sems.length - 1][0] : '')),
-        UI.field('Course code', input('e-code', { placeholder: '23CS5PEABC' })),
-        UI.field('Course name', input('e-cname', { placeholder: 'Cloud Computing', class: 'wide' })),
-        UI.field('Short name', input('e-short', { placeholder: 'CLC', maxlength: 12 })),
-        UI.field('L-T-P', input('e-ltp', { placeholder: '3-0-1', maxlength: 5 })),
-        UI.field('Category', input('e-cat', { list: 'e-cats', placeholder: 'optional, for example PE' })),
-        datalist('e-cats', CATEGORIES),
-        UI.field('Scheduling', UI.select('e-sched', [['REGULAR', 'Regular (teacher and room)'],
-          ['ELECTIVE_SLOT', 'Elective slot (period only)'], ['NONE', 'Not on the timetable']], 'REGULAR'))
-      ], 'Save course', function (f) {
-        save(f, function () {
-          return api.save('courses', {
-            semester: value(f, 'e-sem'), code: value(f, 'e-code'), name: value(f, 'e-cname'), short: value(f, 'e-short'),
-            ltp: value(f, 'e-ltp'), category: value(f, 'e-cat'), scheduling: value(f, 'e-sched')
+    return api.courseList().then(function (courses) {
+      var sems = semesters();
+      var f;
+      function fill(hit) {
+        var c = hit.data;
+        put(f, 'e-code', c.code); put(f, 'e-cname', c.name); put(f, 'e-short', c.short);
+        put(f, 'e-ltp', c.LTP); put(f, 'e-cat', c.category || ''); put(f, 'e-sched', c.scheduling);
+      }
+      var byCode = courses.map(function (c) { return item(c.code, c.short + ' · ' + c.name, c); });
+      var byShort = courses.map(function (c) { return item(c.short, c.name, c); });
+      var byName = courses.map(function (c) { return item(c.name, c.short + ' · ' + c.code, c); });
+      var cats = Object.keys(CATEGORY_NAMES).map(function (k) { return item(k, CATEGORY_NAMES[k]); });
+      courses.forEach(function (c) { if (c.category && !CATEGORY_NAMES[c.category]) cats.push(item(c.category, c.category)); });
+      f = form('Add or change a course',
+        'Every section of the chosen semester gets the course (it shows in their course list). Saving a code that exists updates the course. Choosing an existing course fills the other boxes.', [
+          UI.field('Semester', UI.select('e-sem', sems, sems.length ? sems[sems.length - 1][0] : '')),
+          UI.field('Course code', suggestBox('e-code', byCode, { placeholder: '23CS5PEABC' }, fill)),
+          UI.field('Course name (full name)', suggestBox('e-cname', byName, { placeholder: 'Cloud Computing', class: 'wide' }, fill)),
+          UI.field('Short name', suggestBox('e-short', byShort, { placeholder: 'CLC', maxlength: 12 }, fill)),
+          UI.field('L-T-P', input('e-ltp', { placeholder: '3-0-1', maxlength: 5 })),
+          UI.field('Category', suggestBox('e-cat', cats, { placeholder: 'optional, for example PE' })),
+          UI.field('Scheduling', UI.select('e-sched', [['REGULAR', 'Regular (teacher and room)'],
+            ['ELECTIVE_SLOT', 'Elective slot (period only)'], ['NONE', 'Not on the timetable']], 'REGULAR'))
+        ], 'Save course', function (form) {
+          save(form, function () {
+            return api.save('courses', {
+              semester: value(form, 'e-sem'), code: value(form, 'e-code'), name: value(form, 'e-cname'), short: value(form, 'e-short'),
+              ltp: value(form, 'e-ltp'), category: value(form, 'e-cat'), scheduling: value(form, 'e-sched')
+            });
+          }, function (r) {
+            return { text: (r.created ? 'Added course ' : 'Updated course ') + r.short + ' (' + r.name + ').' };
           });
-        }, function (r) {
-          return { text: (r.created ? 'Added course ' : 'Updated course ') + r.short + ' (' + r.name + ').' };
         });
-      });
+      return f;
+    });
   }
 
   function sectionForm() {
     var list = sections(), last = list[list.length - 1] || {};
     var semesterNumbers = [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return [String(n), 'Semester ' + n]; });
-    return form('Add or change a section',
-      'Department, program, year and semester are created when they are new. The section gets every course of its semester and follows the chosen bell schedule (the 5th semester sections follow A, the 3rd semester ones B).', [
-        UI.field('Department', input('e-dept', { list: 'e-depts', placeholder: 'CSE', value: last.department || '' })),
-        datalist('e-depts', departments()),
-        UI.field('Department name (new department only)', input('e-dname', { placeholder: 'optional', class: 'wide' })),
-        UI.field('Program', input('e-prog', { list: 'e-progs', value: last.program || 'UG' })),
-        datalist('e-progs', ['UG', 'PG']),
-        UI.field('Academic year', input('e-year', { placeholder: '2026-27', value: last.year || '' })),
+    var f;
+    var depts = departmentItems();
+    var deptNames = departments().map(function (d) { return item(deptName(d), d); });
+    var programs = UI.uniq(['UG', 'PG'].concat(M().sections.map(function (s) { return s.program; }))).map(function (p) { return item(p, PROGRAM_NAMES[p] || p); });
+    var years = UI.uniq(M().sections.map(function (s) { return s.year; })).sort().map(function (y) { return item(y, 'Academic year ' + y); });
+    var names = UI.uniq(M().sections.map(function (s) { return s.name; })).map(function (n) {
+      var s = M().sections.find(function (x) { return x.name === n; });
+      return item(n, s.department + ' · semester ' + s.semester + (s.cluster ? ' · cluster ' + s.cluster : ''));
+    });
+    f = form('Add or change a section',
+      'Department, program, year and semester are created when they are new. The section gets every course of its semester and follows the chosen bell schedule (the 5th semester sections follow A, the 3rd semester ones B). Every box suggests the short form with its full name.', [
+        UI.field('Department (short form)', suggestBox('e-dept', depts, { placeholder: 'CSE', value: last.department || '' }, function (hit) { put(f, 'e-dname', hit.name); })),
+        UI.field('Department name (full name; new department only)', suggestBox('e-dname', deptNames, { placeholder: 'optional', class: 'wide' }, function (hit) { put(f, 'e-dept', hit.name); })),
+        UI.field('Program', suggestBox('e-prog', programs, { value: last.program || 'UG' })),
+        UI.field('Academic year', suggestBox('e-year', years, { placeholder: '2026-27', value: last.year || '' })),
         UI.field('Semester', UI.select('e-semno', semesterNumbers, String(last.semester || 1))),
-        UI.field('Cluster', input('e-cluster', { list: 'e-clusters', placeholder: 'optional, for example E' })),
-        datalist('e-clusters', clusters()),
-        UI.field('Section', input('e-sec', { placeholder: '5E5' })),
+        UI.field('Cluster', suggestBox('e-cluster', clusterItems(), { placeholder: 'optional, for example E' })),
+        UI.field('Section', suggestBox('e-sec', names, { placeholder: '5E5' })),
         UI.field('Section code', input('e-scode', { placeholder: 'optional, for example 5U' })),
         UI.grids().length > 1 ? UI.field('Bell schedule', UI.select('e-grid', [['', 'Keep / default']].concat(UI.grids().map(function (g) { return [g.id, g.name]; })), '')) : null
-      ], 'Save section', function (f) {
-        save(f, function () {
+      ], 'Save section', function (form) {
+        save(form, function () {
           return api.save('sections', {
-            department: value(f, 'e-dept'), departmentName: value(f, 'e-dname'), program: value(f, 'e-prog'),
-            year: value(f, 'e-year'), semester: value(f, 'e-semno'), cluster: value(f, 'e-cluster'),
-            name: value(f, 'e-sec'), code: value(f, 'e-scode'), grid: value(f, 'e-grid')
+            department: value(form, 'e-dept'), departmentName: value(form, 'e-dname'), program: value(form, 'e-prog'),
+            year: value(form, 'e-year'), semester: value(form, 'e-semno'), cluster: value(form, 'e-cluster'),
+            name: value(form, 'e-sec'), code: value(form, 'e-scode'), grid: value(form, 'e-grid')
           });
         }, function (r) {
           return { text: (r.created ? 'Added section ' : 'Updated section ') + r.name + '.', href: '#/sections?s=' + enc(r.id), link: 'Open the section' };
         });
       });
+    return f;
   }
 
   function teacherForm(p) {

@@ -67,6 +67,11 @@
     return 'c' + (Math.max(i, 0) % 6);
   }
   function sectionLabel(s) { return s.name + (s.sample ? ' (sample)' : ''); }
+  // department id with its full name, for example "CSE · Computer Science and Engineering"
+  function deptLabel(id) {
+    var d = (M.departments || []).find(function (x) { return x.id === id; });
+    return d && d.name && d.name !== id ? id + ' · ' + d.name : id;
+  }
   // A class can use several rooms at once (for example LAB 503 and LAB 504), so rooms come as a list of {id, number}.
   function sortedRooms(rooms) {
     return (rooms || []).slice().sort(function (a, b) { return String(a.number).localeCompare(String(b.number), undefined, { numeric: true }); });
@@ -439,7 +444,7 @@
           return function (v) { go('sections', Object.assign({}, base, pickerParams(sel, level, v))); };
         }
         var filters = h('div', { class: 'filters' },
-          field('Branch', select('s-br', sel.all_br.map(function (v) { return [v, v]; }), sel.br, change('br'))),
+          field('Branch', select('s-br', sel.all_br.map(function (v) { return [v, deptLabel(v)]; }), sel.br, change('br'))),
           sel.all_yr.length > 1 ? field('Year', select('s-yr', sel.all_yr.map(function (v) { return [v, v]; }), sel.yr, change('yr'))) : null,
           field('Semester', select('s-sm', sel.all_sm.map(function (v) { return [v, 'Semester ' + v]; }), sel.sm, change('sm'))),
           field('Cluster', select('s-cl', sel.all_cl.map(function (v) { return [v, clusterLabel(v)]; }), sel.cl, change('cl'))),

@@ -28,7 +28,7 @@ MATCH (d:Department)-[:OFFERS]->(p:Program)-[:HAS_ACADEMIC_YEAR]->(ay:AcademicYe
       -[:HAS_SEMESTER]->(sem:Semester)-[:HAS_SECTION]->(sec:Section)
 OPTIONAL MATCH (fc:FacultyCluster)-[:HAS_SECTION]->(sec)
 OPTIONAL MATCH (sec)-[:FOLLOWS]->(g:TimeGrid)
-RETURN sec.id AS id, sec.name AS section, d.id AS department, p.name AS program,
+RETURN sec.id AS id, sec.name AS section, d.id AS department, d.name AS departmentName, p.name AS program,
        ay.year AS year, sem.number AS semester, sem.id AS semesterId, fc.name AS cluster, g.id AS grid
 ORDER BY department, year, semester, cluster, section;
 
@@ -36,7 +36,7 @@ ORDER BY department, year, semester, cluster, section;
 // @name: meta_faculty
 // @params: {}
 MATCH (f:Faculty)-[:WORKS_IN]->(d:Department)
-RETURN f.id AS id, f.initials AS initials, f.name AS name, d.id AS department
+RETURN f.id AS id, f.initials AS initials, f.name AS name, d.id AS department, d.name AS departmentName
 ORDER BY initials, id;
 
 

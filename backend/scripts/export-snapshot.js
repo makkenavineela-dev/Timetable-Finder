@@ -9,6 +9,7 @@ import { read, close, explain } from '../src/db.js';
 const OUT = fileURLToPath(new URL('../../frontend/data.js', import.meta.url));
 
 const QUERIES = {
+  departments: 'MATCH (d:Department) RETURN d.id AS id, d.name AS name ORDER BY id',
   buildings: 'MATCH (b:Building) RETURN b.id AS id, b.name AS name ORDER BY id',
   floors: `MATCH (b:Building)-[:HAS_FLOOR]->(f:Floor)
 RETURN f.id AS id, b.id AS building, f.number AS number ORDER BY building, number`,
